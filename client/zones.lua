@@ -31,7 +31,9 @@ local function lookupZoneIndexFromID(zones, id)
 end
 
 local function onStoreEnter(data)
-    local index = lookupZoneIndexFromID(Zones.Store, data.id)
+    local index = lookupZoneIndexFromID(Zones.Store, data.id or data.shopId)
+    if not index then return end
+
     local store = Config.Stores[index]
 
     local jobName = (store.job and client.job.name) or (store.gang and client.gang.name)
@@ -55,7 +57,7 @@ local function onStoreEnter(data)
 end
 
 local function onClothingRoomEnter(data)
-    local index = lookupZoneIndexFromID(Zones.ClothingRoom, data.id)
+    local index = lookupZoneIndexFromID(Zones.ClothingRoom, data.id or data.zoneId)
     local clothingRoom = Config.ClothingRooms[index]
 
     local jobName = clothingRoom.job and client.job.name or client.gang.name
@@ -73,7 +75,7 @@ local function onClothingRoomEnter(data)
 end
 
 local function onPlayerOutfitRoomEnter(data)
-    local index = lookupZoneIndexFromID(Zones.PlayerOutfitRoom, data.id)
+    local index = lookupZoneIndexFromID(Zones.PlayerOutfitRoom, data.id or data.zoneId)
     local playerOutfitRoom = Config.PlayerOutfitRooms[index]
 
     local isAllowed = IsPlayerAllowedForOutfitRoom(playerOutfitRoom)
@@ -101,6 +103,7 @@ local function SetupZone(store, onEnter, onExit)
 
     if Config.UseRadialMenu or store.usePoly then
         return lib.zones.poly({
+            shopId = store.id,
             points = store.points,
             debug = Config.Debug,
             onEnter = onEnter,
@@ -109,6 +112,7 @@ local function SetupZone(store, onEnter, onExit)
     end
 
     return lib.zones.box({
+        shopId = store.id,
         coords = store.coords,
         size = store.size,
         rotation = store.rotation,
@@ -120,7 +124,7 @@ end
 
 local function SetupStoreZones()
     for _, v in pairs(Config.Stores) do
-        Zones.Store[#Zones.Store + 1] = SetupZone(v, onStoreEnter, onZoneExit)
+        Zones.Store[v.shopId] = SetupZone(v, onStoreEnter, onZoneExit)
     end
 end
 
@@ -182,6 +186,54 @@ end)
 AddEventHandler("onResourceStop", function(resource)
     if resource == GetCurrentResourceName() then
         RemoveZones()
+    end
+end)
+
+RegisterNetEvent("illenium-appearance:Add", function(Infos)
+    local exists = false
+    for _, shop in ipairs(Config.Stores) do
+        if (shop.shopId == Infos.shopsId) then
+            exists = true
+            break
+        end
+    end
+
+    if not exists then
+        local data = {
+            shopId = Infos.shopsId,
+            id = Infos.shopsId,
+            type = Infos.type,
+            coords = vector4(Infos.coords[1], Infos.coords[2], Infos.coords[3], Infos.coords[4]),
+            size = vector3(4, 4, 4),
+            rotation = 45,
+            usePoly = false,
+            showBlip = Infos.hasBlip,
+            points = {}
+        }
+
+        if Infos.hasPermission then
+            if Infos.hasPermission.job then
+                data.job = Infos.hasPermission.job
+            elseif Infos.hasPermission.gang then
+                data.gang = Infos.hasPermission.gang
+            end
+        end
+
+        Config.Stores[#Config.Stores + 1] = data
+        Zones.Store[#Zones.Store + 1] = SetupZone(data, onStoreEnter, onZoneExit)
+    end
+end)
+
+
+RegisterNetEvent("illenium-appearance:Rem", function(id)
+    local storeIndex = lib.array.findIndex(Config.Stores, function(e) return e.shopId == id end)
+    if storeIndex then 
+        table.remove(Config.Stores, storeIndex)
+    end
+
+    local shopIndex = lib.array.findIndex(Zones.Store, function(e) return e.shopId == id end)
+    if shopIndex then 
+        table.remove(Zones.Store, shopIndex)
     end
 end)
 
