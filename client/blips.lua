@@ -1,6 +1,44 @@
 local Blips = {}
 local client = client
 
+RegisterNetEvent("illenium-appearance:Add", function(Infos)
+    local exists = false
+    for _, shop in ipairs(Config.Stores) do
+        if (shop.shopId == Infos.shopsId )then
+            exists = true
+            break
+        end
+    end
+
+    if not exists then
+        local data = {
+            shopId = Infos.shopsId,
+            id = Infos.shopsId,
+            type = Infos.type,
+            coords = vector4(Infos.coords[1], Infos.coords[2], Infos.coords[3], Infos.coords[4]),
+            size = vector3(4, 4, 4),
+            rotation = 45,
+            usePoly = false,
+            showBlip = Infos.hasBlip,
+            notShowBlip = Infos.hasBlip,
+            points = { }
+        }
+        Config.Stores[#Config.Stores + 1] = data
+    end
+end)
+
+RegisterNetEvent("illenium-appearance:Rem", function(id)
+    local storeIndex = lib.array.findIndex(Config.Stores, function(e) return e.shopId == id end)
+    if storeIndex then 
+        table.remove(Config.Stores, storeIndex)
+    end
+end)
+
+RegisterNetEvent("illenium-appearance:Blips", function()
+    Wait(5000)
+    ResetBlips()
+end)
+
 local function ShowBlip(blipConfig, blip)
     if blip.job and blip.job ~= client.job.name then
         return false
@@ -30,7 +68,7 @@ end
 local function SetupBlips()
     for k, _ in pairs(Config.Stores) do
         local blipConfig = Config.Blips[Config.Stores[k].type]
-        if ShowBlip(blipConfig, Config.Stores[k]) then
+        if ShowBlip(blipConfig, Config.Stores[k]) and not _.notShowBlip then
             local blip = CreateBlip(blipConfig, Config.Stores[k].coords)
             Blips[#Blips + 1] = blip
         end
